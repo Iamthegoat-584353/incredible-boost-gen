@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, Partials } = require("discord.js");
+const { Client, GatewayIntentBits, EmbedBuilder, Partials, PermissionsBitField } = require("discord.js");
 const { token } = require("./config");
 
 const client = new Client({
@@ -23,14 +23,14 @@ const OWNERS = [
 /* BOOSTER ROLE */
 const BOOSTER_ROLE = "1472619966040637562";
 
-/* STAFF ROLE (PING ON REDEEM) */
+/* STAFF ROLE */
 const STAFF_ROLE = "1465398987094888510";
 
 /* GEN CHANNEL */
 const GEN_CHANNEL = "1477010131035230394";
 
 /* COOLDOWN */
-const COOLDOWN_TIME = 60 * 60 * 1000; // 1 hour
+const COOLDOWN_TIME = 60 * 60 * 1000;
 
 /* BANNER */
 const BANNER_URL =
@@ -89,12 +89,70 @@ client.on("messageCreate", async (message) => {
     return message.reply("✅ Generator enabled.");
   }
 
-  /* ================= GENERATOR ================= */
+  /* ================= BAN ================= */
 
-  if (command === "gen") {
+  if (command === "ban") {
 
-    if (message.channel.id !== GEN_CHANNEL)
-      return;
+    if (!member.permissions.has(PermissionsBitField.Flags.BanMembers))
+      return message.reply("❌ You need Ban Members permission.");
+
+    const target = message.mentions.members.first();
+
+    if (!target)
+      return message.reply("❌ Mention a user to ban.");
+
+    if (!target.bannable)
+      return message.reply("❌ I cannot ban this user.");
+
+    const reason = args.slice(1).join(" ") || "No reason provided";
+
+    await target.ban({ reason });
+
+    const embed = new EmbedBuilder()
+      .setTitle("🔨 User Banned")
+      .setDescription(`User: ${target.user.tag}\nReason: ${reason}`)
+      .setColor("#ff0000");
+
+    return message.channel.send({ embeds: [embed] });
+
+  }
+
+  /* ================= UNBAN ================= */
+
+  if (command === "unban") {
+
+    if (!member.permissions.has(PermissionsBitField.Flags.BanMembers))
+      return message.reply("❌ You need Ban Members permission.");
+
+    const userId = args[0];
+
+    if (!userId)
+      return message.reply("❌ Usage: .unban <userID>");
+
+    try {
+
+      await message.guild.members.unban(userId);
+
+      const embed = new EmbedBuilder()
+        .setTitle("✅ User Unbanned")
+        .setDescription(`User ID: ${userId}`)
+        .setColor("#00ff00");
+
+      return message.channel.send({ embeds: [embed] });
+
+    } catch {
+
+      return message.reply("❌ Failed to unban user. Check the ID.");
+
+    }
+
+  }
+
+  /* ================= BOOSTER GENERATOR (.bgen) ================= */
+
+  if (command === "bgen") {
+
+    if (message.channel.id !== GEN_CHANNEL) return;
 
     if (!generatorEnabled)
       return message.reply("🛑 Generator is currently disabled.");
@@ -106,7 +164,7 @@ client.on("messageCreate", async (message) => {
     const type = args[0]?.toLowerCase();
 
     if (!type)
-      return message.reply("❌ Usage: `.gen steam | minecraft | crunchyroll`");
+      return message.reply("❌ Usage: `.bgen steam | minecraft | crunchyroll`");
 
     if (!["steam", "minecraft", "crunchyroll"].includes(type)) {
       return message.reply("❌ Invalid generator type.");
@@ -176,11 +234,8 @@ ${instruction}`
       .setImage(BANNER_URL);
 
     try {
-
       await message.author.send({ embeds: [dmEmbed] });
-
     } catch {
-
       message.reply("❌ I cannot DM you. Enable DMs.");
     }
 
