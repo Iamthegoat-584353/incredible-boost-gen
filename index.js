@@ -14,40 +14,46 @@ const client = new Client({
 
 const prefix = ".";
 
+/* OWNER USERS */
 const OWNERS = [
   "1121404311319089153",
   "1471837933429325855"
 ];
 
+/* BOOSTER ROLE */
 const BOOSTER_ROLE = "1472619966040637562";
 
+/* STAFF ROLE (PING ON REDEEM) */
 const STAFF_ROLE = "1465398987094888510";
 
+/* GEN CHANNEL */
 const GEN_CHANNEL = "1477010131035230394";
 
-const COOLDOWN_TIME = 60 * 60 * 1000;
+/* COOLDOWN */
+const COOLDOWN_TIME = 60 * 60 * 1000; // 1 hour
 
-const BANNER_URL = "https://cdn.discordapp.com/attachments/1474387569818079395/1476581540740726979/lv_0_20260226193526.gif";
+/* BANNER */
+const BANNER_URL =
+"https://cdn.discordapp.com/attachments/1474387569818079395/1476581540740726979/lv_0_20260226193526.gif";
 
+/* STORAGE */
 let generatorEnabled = true;
-
 const cooldown = new Map();
-const usedCodes = new Set();
+const generatedCodes = new Set();
+const redeemedCodes = new Set();
 
 client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
+/* RANDOM STRING */
 function randomString(length) {
 
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
   let result = "";
 
   for (let i = 0; i < length; i++) {
-
     result += chars[Math.floor(Math.random() * chars.length)];
-
   }
 
   return result;
@@ -63,7 +69,7 @@ client.on("messageCreate", async (message) => {
   const member = message.member;
   const isOwner = OWNERS.includes(message.author.id);
 
-  // ================= OWNER COMMANDS =================
+  /* ================= OWNER COMMANDS ================= */
 
   if (command === "disablegen") {
 
@@ -83,16 +89,7 @@ client.on("messageCreate", async (message) => {
     return message.reply("✅ Generator enabled.");
   }
 
-  if (command === "resetcooldown") {
-
-    if (!isOwner) return message.reply("❌ Owner only.");
-
-    cooldown.clear();
-
-    return message.reply("♻ Cooldowns reset.");
-  }
-
-  // ================= GENERATOR =================
+  /* ================= GENERATOR ================= */
 
   if (command === "gen") {
 
@@ -103,9 +100,7 @@ client.on("messageCreate", async (message) => {
       return message.reply("🛑 Generator is currently disabled.");
 
     if (!member.roles.cache.has(BOOSTER_ROLE) && !isOwner) {
-
       return message.reply("❌ Only boosters can use this generator.");
-
     }
 
     const type = args[0]?.toLowerCase();
@@ -118,7 +113,6 @@ client.on("messageCreate", async (message) => {
     }
 
     const now = Date.now();
-
     const cooldownKey = `${message.author.id}-${type}`;
 
     if (cooldown.has(cooldownKey)) {
@@ -142,25 +136,21 @@ client.on("messageCreate", async (message) => {
     let instruction;
 
     if (type === "steam") {
-
       generated = randomString(3);
       instruction = "This is a 3 character Steam code.";
-
     }
 
     if (type === "minecraft") {
-
       generated = randomString(5);
       instruction = "This is a 5 character Minecraft code.";
-
     }
 
     if (type === "crunchyroll") {
-
       generated = randomString(6);
       instruction = "This is a 6 character Crunchyroll code.";
-
     }
+
+    generatedCodes.add(generated);
 
     const serverEmbed = new EmbedBuilder()
       .setTitle("✅ Generation Successful")
@@ -192,26 +182,26 @@ ${instruction}`
     } catch {
 
       message.reply("❌ I cannot DM you. Enable DMs.");
-
     }
 
   }
 
-  // ================= REDEEM =================
+  /* ================= REDEEM ================= */
 
   if (command === "redeem") {
 
     const code = args[0];
 
-    if (!code) {
+    if (!code)
       return message.reply("❌ Usage: `.redeem <code>`");
-    }
 
-    if (usedCodes.has(code)) {
-      return message.reply("❌ This code was already redeemed.");
-    }
+    if (!generatedCodes.has(code))
+      return message.reply("❌ Fake or invalid code.");
 
-    usedCodes.add(code);
+    if (redeemedCodes.has(code))
+      return message.reply("❌ This code has already been redeemed.");
+
+    redeemedCodes.add(code);
 
     const redeemEmbed = new EmbedBuilder()
       .setTitle("🎟 Code Redeemed")
@@ -228,8 +218,7 @@ Staff please verify this code.`
       embeds: [redeemEmbed]
     });
 
-    message.reply("✅ Code submitted to staff.");
-
+    message.reply("✅ Code sent to staff for verification.");
   }
 
 });
