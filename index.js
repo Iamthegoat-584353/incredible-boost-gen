@@ -77,31 +77,6 @@ client.on("messageCreate", async (message) => {
     return message.reply("✅ Generator enabled.");
   }
 
-  /* ================= BAN ================= */
-  if (command === "ban") {
-    if (!member.permissions.has(PermissionsBitField.Flags.BanMembers))
-      return message.reply("❌ You need Ban Members permission.");
-
-    // Fetch target by mention OR by ID
-    const target = message.mentions.users.first() || await client.users.fetch(args[0]).catch(() => null);
-
-    if (!target)
-      return message.reply("❌ Usage: `.ban @user reason` or `.ban userID reason`");
-
-    const reason = args.slice(1).join(" ") || "No reason provided";
-
-    try {
-      await message.guild.members.ban(target.id, { reason });
-      const embed = new EmbedBuilder()
-        .setTitle("🔨 User Banned")
-        .setDescription(`User: ${target.tag}\nID: ${target.id}\nReason: ${reason}`)
-        .setColor("#ff0000");
-      message.channel.send({ embeds: [embed] });
-    } catch {
-      return message.reply("❌ I cannot ban this user.");
-    }
-  }
-
   /* ================= UNBAN ================= */
   if (command === "unban") {
     if (!member.permissions.has(PermissionsBitField.Flags.BanMembers))
