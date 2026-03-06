@@ -14,8 +14,6 @@ const client = new Client({
 
 const prefix = ".";
 
-/* ================= IDS ================= */
-
 const SERVER_ID = "1344711277683146825";
 const GEN_CHANNEL = "1477010131035230394";
 
@@ -24,11 +22,9 @@ const OWNERS = [
   "1471837933429325855"
 ];
 
+const BOOSTER_ROLE = "1472619966040637562";
 const ADMIN_ROLE = "1478005454495023104";
 const OWNER_ROLE = "1465398989200425204";
-const BOOSTER_ROLE = "1472619966040637562";
-
-/* ================= SETTINGS ================= */
 
 const COOLDOWN_TIME = 60 * 60 * 1000;
 
@@ -42,44 +38,44 @@ client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
-/* ================= RANDOM CODE ================= */
-
 function randomString(length) {
 
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let result = "";
 
   for (let i = 0; i < length; i++) {
-
     result += chars[Math.floor(Math.random() * chars.length)];
-
   }
 
   return result;
 }
 
-/* ================= MESSAGE ================= */
-
 client.on("messageCreate", async (message) => {
 
+  if (message.author.bot) return;
   if (!message.guild) return;
 
   if (message.guild.id !== SERVER_ID) return;
 
-  if (!message.content.startsWith(prefix) || message.author.bot) return;
+  if (!message.content.startsWith(prefix)) return;
 
   const args = message.content.slice(prefix.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
 
   const member = message.member;
 
-  const isOwner = OWNERS.includes(message.author.id);
+  const isOwnerUser = OWNERS.includes(message.author.id);
 
-/* ================= OWNER COMMANDS ================= */
+  const hasAccessRole =
+    member.roles.cache.has(BOOSTER_ROLE) ||
+    member.roles.cache.has(ADMIN_ROLE) ||
+    member.roles.cache.has(OWNER_ROLE);
+
+  // ================= OWNER COMMANDS =================
 
   if (command === "disablegen") {
 
-    if (!isOwner)
+    if (!isOwnerUser)
       return message.reply("❌ Owner only.");
 
     generatorEnabled = false;
@@ -89,7 +85,7 @@ client.on("messageCreate", async (message) => {
 
   if (command === "enablegen") {
 
-    if (!isOwner)
+    if (!isOwnerUser)
       return message.reply("❌ Owner only.");
 
     generatorEnabled = true;
@@ -97,33 +93,26 @@ client.on("messageCreate", async (message) => {
     return message.reply("✅ Generator enabled.");
   }
 
-/* ================= GENERATOR ================= */
+  // ================= GENERATOR =================
 
   if (command === "gen") {
 
-    if (message.channel.id !== GEN_CHANNEL) {
-      return message.reply("❌ You can only use this in the gen channel.");
-    }
+    if (message.channel.id !== GEN_CHANNEL)
+      return;
 
     if (!generatorEnabled)
       return message.reply("🛑 Generator is currently disabled.");
 
-    if (
-      !member.roles.cache.has(BOOSTER_ROLE) &&
-      !member.roles.cache.has(ADMIN_ROLE) &&
-      !member.roles.cache.has(OWNER_ROLE)
-    ) {
-      return message.reply("❌ Only boosters, admins or owners can use this generator.");
-    }
+    if (!hasAccessRole && !isOwnerUser)
+      return message.reply("❌ You don't have permission to use this generator.");
 
     const type = args[0]?.toLowerCase();
 
     if (!type)
       return message.reply("❌ Usage: `.gen steam | minecraft | crunchyroll`");
 
-    if (!["steam", "minecraft", "crunchyroll"].includes(type)) {
+    if (!["steam", "minecraft", "crunchyroll"].includes(type))
       return message.reply("❌ Invalid generator type.");
-    }
 
     const now = Date.now();
     const cooldownKey = `${message.author.id}-${type}`;
@@ -199,4 +188,4 @@ ${instruction}`
 
 });
 
-client.login(token);  
+client.login(token);
