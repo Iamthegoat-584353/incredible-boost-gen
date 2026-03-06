@@ -14,17 +14,16 @@ const client = new Client({
 
 const prefix = ".";
 
-const SERVER_ID = "1344711277683146825";
-const GEN_CHANNEL = "1477010131035230394";
-
 const OWNERS = [
   "1121404311319089153",
   "1471837933429325855"
 ];
 
 const BOOSTER_ROLE = "1472619966040637562";
-const ADMIN_ROLE = "1478005454495023104";
-const OWNER_ROLE = "1465398989200425204";
+
+const STAFF_ROLE = "1465398987094888510";
+
+const GEN_CHANNEL = "1477010131035230394";
 
 const COOLDOWN_TIME = 60 * 60 * 1000;
 
@@ -33,6 +32,7 @@ const BANNER_URL = "https://cdn.discordapp.com/attachments/1474387569818079395/1
 let generatorEnabled = true;
 
 const cooldown = new Map();
+const usedCodes = new Set();
 
 client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
@@ -41,10 +41,13 @@ client.once("ready", () => {
 function randomString(length) {
 
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
   let result = "";
 
   for (let i = 0; i < length; i++) {
+
     result += chars[Math.floor(Math.random() * chars.length)];
+
   }
 
   return result;
@@ -52,31 +55,19 @@ function randomString(length) {
 
 client.on("messageCreate", async (message) => {
 
-  if (message.author.bot) return;
-  if (!message.guild) return;
-
-  if (message.guild.id !== SERVER_ID) return;
-
-  if (!message.content.startsWith(prefix)) return;
+  if (!message.content.startsWith(prefix) || message.author.bot) return;
 
   const args = message.content.slice(prefix.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
 
   const member = message.member;
-
-  const isOwnerUser = OWNERS.includes(message.author.id);
-
-  const hasAccessRole =
-    member.roles.cache.has(BOOSTER_ROLE) ||
-    member.roles.cache.has(ADMIN_ROLE) ||
-    member.roles.cache.has(OWNER_ROLE);
+  const isOwner = OWNERS.includes(message.author.id);
 
   // ================= OWNER COMMANDS =================
 
   if (command === "disablegen") {
 
-    if (!isOwnerUser)
-      return message.reply("❌ Owner only.");
+    if (!isOwner) return message.reply("❌ Owner only.");
 
     generatorEnabled = false;
 
@@ -85,12 +76,20 @@ client.on("messageCreate", async (message) => {
 
   if (command === "enablegen") {
 
-    if (!isOwnerUser)
-      return message.reply("❌ Owner only.");
+    if (!isOwner) return message.reply("❌ Owner only.");
 
     generatorEnabled = true;
 
     return message.reply("✅ Generator enabled.");
+  }
+
+  if (command === "resetcooldown") {
+
+    if (!isOwner) return message.reply("❌ Owner only.");
+
+    cooldown.clear();
+
+    return message.reply("♻ Cooldowns reset.");
   }
 
   // ================= GENERATOR =================
@@ -103,18 +102,23 @@ client.on("messageCreate", async (message) => {
     if (!generatorEnabled)
       return message.reply("🛑 Generator is currently disabled.");
 
-    if (!hasAccessRole && !isOwnerUser)
-      return message.reply("❌ You don't have permission to use this generator.");
+    if (!member.roles.cache.has(BOOSTER_ROLE) && !isOwner) {
+
+      return message.reply("❌ Only boosters can use this generator.");
+
+    }
 
     const type = args[0]?.toLowerCase();
 
     if (!type)
       return message.reply("❌ Usage: `.gen steam | minecraft | crunchyroll`");
 
-    if (!["steam", "minecraft", "crunchyroll"].includes(type))
+    if (!["steam", "minecraft", "crunchyroll"].includes(type)) {
       return message.reply("❌ Invalid generator type.");
+    }
 
     const now = Date.now();
+
     const cooldownKey = `${message.author.id}-${type}`;
 
     if (cooldown.has(cooldownKey)) {
@@ -138,18 +142,24 @@ client.on("messageCreate", async (message) => {
     let instruction;
 
     if (type === "steam") {
+
       generated = randomString(3);
       instruction = "This is a 3 character Steam code.";
+
     }
 
     if (type === "minecraft") {
+
       generated = randomString(5);
       instruction = "This is a 5 character Minecraft code.";
+
     }
 
     if (type === "crunchyroll") {
+
       generated = randomString(6);
       instruction = "This is a 6 character Crunchyroll code.";
+
     }
 
     const serverEmbed = new EmbedBuilder()
@@ -182,7 +192,43 @@ ${instruction}`
     } catch {
 
       message.reply("❌ I cannot DM you. Enable DMs.");
+
     }
+
+  }
+
+  // ================= REDEEM =================
+
+  if (command === "redeem") {
+
+    const code = args[0];
+
+    if (!code) {
+      return message.reply("❌ Usage: `.redeem <code>`");
+    }
+
+    if (usedCodes.has(code)) {
+      return message.reply("❌ This code was already redeemed.");
+    }
+
+    usedCodes.add(code);
+
+    const redeemEmbed = new EmbedBuilder()
+      .setTitle("🎟 Code Redeemed")
+      .setDescription(
+`User: <@${message.author.id}>
+Code: **${code}**
+
+Staff please verify this code.`
+      )
+      .setColor("#8e44ff");
+
+    message.channel.send({
+      content: `<@&${STAFF_ROLE}>`,
+      embeds: [redeemEmbed]
+    });
+
+    message.reply("✅ Code submitted to staff.");
 
   }
 
