@@ -48,142 +48,101 @@ client.once("ready", () => {
 
 /* RANDOM STRING */
 function randomString(length) {
-
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let result = "";
-
   for (let i = 0; i < length; i++) {
     result += chars[Math.floor(Math.random() * chars.length)];
   }
-
   return result;
 }
 
 client.on("messageCreate", async (message) => {
-
   if (!message.content.startsWith(prefix) || message.author.bot) return;
 
   const args = message.content.slice(prefix.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
-
   const member = message.member;
   const isOwner = OWNERS.includes(message.author.id);
 
   /* ================= OWNER COMMANDS ================= */
-
   if (command === "disablegen") {
-
     if (!isOwner) return message.reply("❌ Owner only.");
-
     generatorEnabled = false;
-
     return message.reply("🛑 Generator disabled.");
   }
 
   if (command === "enablegen") {
-
     if (!isOwner) return message.reply("❌ Owner only.");
-
     generatorEnabled = true;
-
     return message.reply("✅ Generator enabled.");
   }
 
   /* ================= BAN ================= */
-
   if (command === "ban") {
-
     if (!member.permissions.has(PermissionsBitField.Flags.BanMembers))
       return message.reply("❌ You need Ban Members permission.");
 
-    const target = message.mentions.members.first();
+    // Fetch target by mention OR by ID
+    const target = message.mentions.users.first() || await client.users.fetch(args[0]).catch(() => null);
 
     if (!target)
-      return message.reply("❌ Mention a user to ban.");
-
-    if (!target.bannable)
-      return message.reply("❌ I cannot ban this user.");
+      return message.reply("❌ Usage: `.ban @user reason` or `.ban userID reason`");
 
     const reason = args.slice(1).join(" ") || "No reason provided";
 
-    await target.ban({ reason });
-
-    const embed = new EmbedBuilder()
-      .setTitle("🔨 User Banned")
-      .setDescription(`User: ${target.user.tag}\nReason: ${reason}`)
-      .setColor("#ff0000");
-
-    return message.channel.send({ embeds: [embed] });
-
+    try {
+      await message.guild.members.ban(target.id, { reason });
+      const embed = new EmbedBuilder()
+        .setTitle("🔨 User Banned")
+        .setDescription(`User: ${target.tag}\nID: ${target.id}\nReason: ${reason}`)
+        .setColor("#ff0000");
+      message.channel.send({ embeds: [embed] });
+    } catch {
+      return message.reply("❌ I cannot ban this user.");
+    }
   }
 
   /* ================= UNBAN ================= */
-
   if (command === "unban") {
-
     if (!member.permissions.has(PermissionsBitField.Flags.BanMembers))
       return message.reply("❌ You need Ban Members permission.");
 
     const userId = args[0];
-
-    if (!userId)
-      return message.reply("❌ Usage: .unban <userID>");
+    if (!userId) return message.reply("❌ Usage: .unban <userID>");
 
     try {
-
       await message.guild.members.unban(userId);
-
       const embed = new EmbedBuilder()
         .setTitle("✅ User Unbanned")
         .setDescription(`User ID: ${userId}`)
         .setColor("#00ff00");
-
-      return message.channel.send({ embeds: [embed] });
-
+      message.channel.send({ embeds: [embed] });
     } catch {
-
       return message.reply("❌ Failed to unban user. Check the ID.");
-
     }
-
   }
 
   /* ================= BOOSTER GENERATOR (.bgen) ================= */
-
   if (command === "bgen") {
-
     if (message.channel.id !== GEN_CHANNEL) return;
-
     if (!generatorEnabled)
       return message.reply("🛑 Generator is currently disabled.");
-
-    if (!member.roles.cache.has(BOOSTER_ROLE) && !isOwner) {
+    if (!member.roles.cache.has(BOOSTER_ROLE) && !isOwner)
       return message.reply("❌ Only boosters can use this generator.");
-    }
 
     const type = args[0]?.toLowerCase();
-
-    if (!type)
-      return message.reply("❌ Usage: `.bgen steam | minecraft | crunchyroll`");
-
-    if (!["steam", "minecraft", "crunchyroll"].includes(type)) {
+    if (!type) return message.reply("❌ Usage: `.bgen steam | minecraft | crunchyroll`");
+    if (!["steam", "minecraft", "crunchyroll"].includes(type))
       return message.reply("❌ Invalid generator type.");
-    }
 
     const now = Date.now();
     const cooldownKey = `${message.author.id}-${type}`;
-
     if (cooldown.has(cooldownKey)) {
-
       const expiration = cooldown.get(cooldownKey) + COOLDOWN_TIME;
-
       if (now < expiration) {
-
         const timeLeft = expiration - now;
-
         const minutes = Math.floor(timeLeft / 60000);
         const seconds = Math.floor((timeLeft % 60000) / 1000);
-
         return message.reply(`⏳ Wait ${minutes}m ${seconds}s before generating ${type} again.`);
       }
     }
@@ -192,21 +151,9 @@ client.on("messageCreate", async (message) => {
 
     let generated;
     let instruction;
-
-    if (type === "steam") {
-      generated = randomString(3);
-      instruction = "This is a 3 character Steam code.";
-    }
-
-    if (type === "minecraft") {
-      generated = randomString(5);
-      instruction = "This is a 5 character Minecraft code.";
-    }
-
-    if (type === "crunchyroll") {
-      generated = randomString(6);
-      instruction = "This is a 6 character Crunchyroll code.";
-    }
+    if (type === "steam") { generated = randomString(3); instruction = "This is a 3 character Steam code."; }
+    if (type === "minecraft") { generated = randomString(5); instruction = "This is a 5 character Minecraft code."; }
+    if (type === "crunchyroll") { generated = randomString(6); instruction = "This is a 6 character Crunchyroll code."; }
 
     generatedCodes.add(generated);
 
@@ -233,28 +180,16 @@ ${instruction}`
       .setColor("#8e44ff")
       .setImage(BANNER_URL);
 
-    try {
-      await message.author.send({ embeds: [dmEmbed] });
-    } catch {
-      message.reply("❌ I cannot DM you. Enable DMs.");
-    }
-
+    try { await message.author.send({ embeds: [dmEmbed] }); } 
+    catch { message.reply("❌ I cannot DM you. Enable DMs."); }
   }
 
   /* ================= REDEEM ================= */
-
   if (command === "redeem") {
-
     const code = args[0];
-
-    if (!code)
-      return message.reply("❌ Usage: `.redeem <code>`");
-
-    if (!generatedCodes.has(code))
-      return message.reply("❌ Fake or invalid code.");
-
-    if (redeemedCodes.has(code))
-      return message.reply("❌ This code has already been redeemed.");
+    if (!code) return message.reply("❌ Usage: `.redeem <code>`");
+    if (!generatedCodes.has(code)) return message.reply("❌ Fake or invalid code.");
+    if (redeemedCodes.has(code)) return message.reply("❌ This code has already been redeemed.");
 
     redeemedCodes.add(code);
 
@@ -268,11 +203,7 @@ Staff please verify this code.`
       )
       .setColor("#8e44ff");
 
-    message.channel.send({
-      content: `<@&${STAFF_ROLE}>`,
-      embeds: [redeemEmbed]
-    });
-
+    message.channel.send({ content: `<@&${STAFF_ROLE}>`, embeds: [redeemEmbed] });
     message.reply("✅ Code sent to staff for verification.");
   }
 
